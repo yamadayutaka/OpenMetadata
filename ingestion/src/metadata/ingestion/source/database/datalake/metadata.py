@@ -357,7 +357,6 @@ class DatalakeSource(DatabaseServiceSource):
                         if self.config.sourceConfig.config.useFqnForFiltering
                         else table_name,
                     ):
-
                         self.status.filter(
                             table_fqn,
                             "Object Filtered Out",
