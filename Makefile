@@ -269,7 +269,7 @@ build-ingestion-base-local:  ## Builds the ingestion DEV docker operator with th
 	docker build -f ingestion/operators/docker/Dockerfile-dev . -t openmetadata/ingestion-base:local
 
 .PHONY: generate-schema-docs
-generate-schema-docs:  ## export json file from security-report/ to HTML
+generate-schema-docs:  ## Generates markdown files for documenting the JSON Schemas
 	@echo "Generating Schema docs"
 	python -m pip install "jsonschema2md"
 	python scripts/generate_docs_schemas.py
