@@ -29,7 +29,6 @@ import java.util.regex.Pattern;
 import javax.ws.rs.WebApplicationException;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.common.utils.CommonUtil;
 import org.openmetadata.schema.EntityInterface;
@@ -166,6 +165,9 @@ public final class EntityUtil {
 
   public static List<EntityReference> populateEntityReferences(
       List<EntityRelationshipRecord> records, @NonNull String entityType) throws IOException {
+    //    if (nullOrEmpty(records)) {
+    //      return null;
+    //    }
     List<EntityReference> refs = new ArrayList<>(records.size());
     for (EntityRelationshipRecord id : records) {
       refs.add(Entity.getEntityReferenceById(entityType, id.getId(), ALL));
@@ -258,10 +260,13 @@ public final class EntityUtil {
     return ids;
   }
 
-  @RequiredArgsConstructor
   public static class Fields {
-    public static final Fields EMPTY_FIELDS = new Fields(null, "");
+    public static final Fields EMPTY_FIELDS = new Fields(Collections.emptyList());
     @Getter private final List<String> fieldList;
+
+    public Fields(List<String> fieldList) {
+      this.fieldList = fieldList;
+    }
 
     public Fields(List<String> allowedFields, String fieldsParam) {
       if (nullOrEmpty(fieldsParam)) {
@@ -292,10 +297,6 @@ public final class EntityUtil {
     @Override
     public String toString() {
       return fieldList.toString();
-    }
-
-    public void add(Fields fields) {
-      fieldList.addAll(fields.fieldList);
     }
 
     public boolean contains(String field) {

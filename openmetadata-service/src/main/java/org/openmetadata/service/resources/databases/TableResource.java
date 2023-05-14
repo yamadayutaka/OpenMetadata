@@ -924,6 +924,7 @@ public class TableResource extends EntityResource<Table, TableRepository> {
                 .withViewDefinition(create.getViewDefinition())
                 .withTableProfilerConfig(create.getTableProfilerConfig())
                 .withDatabaseSchema(getEntityReference(Entity.DATABASE_SCHEMA, create.getDatabaseSchema())))
+        .withDatabaseSchema(getEntityReference(Entity.DATABASE_SCHEMA, create.getDatabaseSchema()))
         .withRetentionPeriod(create.getRetentionPeriod());
   }
 

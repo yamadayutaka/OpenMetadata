@@ -245,13 +245,13 @@ public abstract class EntityRepository<T extends EntityInterface> {
   public abstract void storeRelationships(T entity) throws IOException;
 
   /**
-   * This method is called to set inherited property that an entity inherits from its parent.
+   * This method is called to set inherited fields that an entity inherits from its parent.
    *
-   * @see TableRepository#setInheritedFields(Table) for an example implementation
+   * @see TableRepository#setInheritedFields(Table, Fields) for an example implementation
    */
   @SuppressWarnings("unused")
-  public void setInheritedFields(T entity) throws IOException {
-    // Override to set inherited properties
+  public T setInheritedFields(T entity, Fields fields) throws IOException {
+    return entity;
   }
 
   /**
@@ -334,7 +334,10 @@ public abstract class EntityRepository<T extends EntityInterface> {
 
   @Transaction
   public final T get(UriInfo uriInfo, UUID id, Fields fields, Include include) throws IOException {
-    return withHref(uriInfo, setFieldsInternal(dao.findEntityById(id, include), fields));
+    T entity = dao.findEntityById(id, include);
+    setFieldsInternal(entity, fields);
+    setInheritedFields(entity, fields);
+    return withHref(uriInfo, entity);
   }
 
   @Transaction
@@ -528,7 +531,6 @@ public abstract class EntityRepository<T extends EntityInterface> {
     entity.setTags(fields.contains(FIELD_TAGS) ? getTags(entity.getFullyQualifiedName()) : null);
     entity.setExtension(fields.contains(FIELD_EXTENSION) ? getExtension(entity) : null);
     setFields(entity, fields);
-    setInheritedFields(entity);
     return entity;
   }
 
@@ -568,14 +570,6 @@ public abstract class EntityRepository<T extends EntityInterface> {
     // Get all the fields in the original entity that can be updated during PUT operation
     setFieldsInternal(original, putFields);
 
-    EntityReference updatedOwner = updated.getOwner();
-    if (updatedOwner != null
-        && updatedOwner.getDescription() != null
-        && updatedOwner.getDescription().equals("inherited")) {
-      // Don't let inherited ownership overwrite existing ownership
-      updated.setOwner(original.getOwner() != null ? original.getOwner() : updatedOwner);
-    }
-
     // If the entity state is soft-deleted, recursively undelete the entity and it's children
     if (Boolean.TRUE.equals(original.getDeleted())) {
       restoreEntity(updated.getUpdatedBy(), entityType, original.getId());
@@ -585,7 +579,7 @@ public abstract class EntityRepository<T extends EntityInterface> {
     EntityUpdater entityUpdater = getUpdater(original, updated, Operation.PUT);
     entityUpdater.update();
     String change = entityUpdater.fieldsChanged() ? RestUtil.ENTITY_UPDATED : RestUtil.ENTITY_NO_CHANGE;
-    setInheritedFields(updated);
+    setInheritedFields(updated, new Fields(allowedFields));
     return new PutResponse<>(Status.OK, withHref(uriInfo, updated), change);
   }
 
@@ -593,6 +587,7 @@ public abstract class EntityRepository<T extends EntityInterface> {
   public final PatchResponse<T> patch(UriInfo uriInfo, UUID id, String user, JsonPatch patch) throws IOException {
     // Get all the fields in the original entity that can be updated during PATCH operation
     T original = setFieldsInternal(dao.findEntityById(id), patchFields);
+    setInheritedFields(original, patchFields);
 
     // Apply JSON patch to the original entity to get the updated entity
     T updated = JsonUtils.applyPatch(original, patch, entityClass);
@@ -607,7 +602,6 @@ public abstract class EntityRepository<T extends EntityInterface> {
     EntityUpdater entityUpdater = getUpdater(original, updated, Operation.PATCH);
     entityUpdater.update();
     String change = entityUpdater.fieldsChanged() ? RestUtil.ENTITY_UPDATED : RestUtil.ENTITY_NO_CHANGE;
-    setInheritedFields(updated);
     return new PatchResponse<>(Status.OK, withHref(uriInfo, updated), change);
   }
 
@@ -850,7 +844,7 @@ public abstract class EntityRepository<T extends EntityInterface> {
     storeEntity(entity, false);
     storeExtension(entity);
     storeRelationships(entity);
-    setInheritedFields(entity);
+    setInheritedFields(entity, new Fields(allowedFields));
     return entity;
   }
 
@@ -1238,7 +1232,7 @@ public abstract class EntityRepository<T extends EntityInterface> {
     return !supportsOwner ? null : Entity.getEntityReferenceById(ref.getType(), ref.getId(), ALL);
   }
 
-  public void populateOwner(EntityReference owner) throws IOException {
+  protected void populateOwner(EntityReference owner) throws IOException {
     if (owner == null) {
       return;
     }
@@ -1275,7 +1269,7 @@ public abstract class EntityRepository<T extends EntityInterface> {
     return new Fields(allowedFields, fields);
   }
 
-  public final Fields getFields(List<String> fields) {
+  protected final Fields getFields(List<String> fields) {
     return new Fields(allowedFields, fields);
   }
 
@@ -1461,6 +1455,8 @@ public abstract class EntityRepository<T extends EntityInterface> {
           && recordChange(FIELD_OWNER, origOwner, updatedOwner, true, entityReferenceMatch)) {
         // Update owner for all PATCH operations. For PUT operations, ownership can't be removed
         EntityRepository.this.updateOwner(original, origOwner, updatedOwner);
+      } else {
+        updated.setOwner(origOwner);
       }
     }
 
